@@ -70,32 +70,37 @@ type Data = Tape Int
 
 --
 
+type Token = (Int, Char)
+
 parse :: String -> Program
-parse str = foo (zip [0..length str - 1] str) emptyTape
+parse str = parseTokens tokens emptyTape
+    where
+        tokens = (zip [0..length str - 1] str)
 
-foo :: [(Int, Char)] -> Program -> Program
-foo []            p = p
-foo ((n, '>'):xs) p = foo xs (tapePut n MoveRight p)
-foo ((n, '<'):xs) p = foo xs (tapePut n MoveLeft p)
-foo ((n, '+'):xs) p = foo xs (tapePut n Increment p)
-foo ((n, '-'):xs) p = foo xs (tapePut n Decrement p)
-foo ((n, '.'):xs) p = foo xs (tapePut n Print p)
-foo ((n, ','):xs) p = foo xs (tapePut n Read p)
-foo ((n, '['):xs) p = let (innerLoop, (n',_):rest) = parseInnerLoop xs
-                      in foo rest
-                       $ tapePut n' (LoopEnd n)
-                       $ foo innerLoop
-                       $ tapePut n (LoopStart n') p
-foo ((n, x):xs)   p = error $ "unknown symbol: " ++ [x]
+parseTokens :: [Token] -> Program -> Program
+parseTokens []            p = p
+parseTokens ((n, '>'):xs) p = parseTokens xs (tapePut n MoveRight p)
+parseTokens ((n, '<'):xs) p = parseTokens xs (tapePut n MoveLeft p)
+parseTokens ((n, '+'):xs) p = parseTokens xs (tapePut n Increment p)
+parseTokens ((n, '-'):xs) p = parseTokens xs (tapePut n Decrement p)
+parseTokens ((n, '.'):xs) p = parseTokens xs (tapePut n Print p)
+parseTokens ((n, ','):xs) p = parseTokens xs (tapePut n Read p)
+parseTokens ((n, '['):xs) p = let (innerLoop, (n',_):rest) = extractInnerLoop xs
+                              in parseTokens rest
+                               $ tapePut n' (LoopEnd n)
+                               $ parseTokens innerLoop
+                               $ tapePut n (LoopStart n') p
+parseTokens ((n, x):xs)   p = error $ "unknown symbol: " ++ [x]
 
-parseInnerLoop :: [(Int, Char)] -> ([(Int, Char)], [(Int, Char)])
-parseInnerLoop str = parseInnerLoop' 0 [] str
-parseInnerLoop' n acc []       = error "unexpected end of input"
-parseInnerLoop' n acc ((j, x):xs)
-    | x == '['            = parseInnerLoop' (n+1) (acc ++ [(j, x)]) xs
-    | x == ']' && n == 0  = (acc, (j, x):xs)
-    | x == ']'            = parseInnerLoop' (n-1) (acc ++ [(j, x)]) xs
-    | otherwise           = parseInnerLoop' n     (acc ++ [(j, x)]) xs
+extractInnerLoop :: [Token] -> ([Token], [Token])
+extractInnerLoop tokens = extractInnerLoop' 0 [] tokens
+    where
+        extractInnerLoop' n acc []       = error "unexpected end of input"
+        extractInnerLoop' n acc ((j, x):xs)
+            | x == '['            = extractInnerLoop' (n+1) (acc ++ [(j, x)]) xs
+            | x == ']' && n == 0  = (acc, (j, x):xs)
+            | x == ']'            = extractInnerLoop' (n-1) (acc ++ [(j, x)]) xs
+            | otherwise           = extractInnerLoop' n     (acc ++ [(j, x)]) xs
 
 --
 
