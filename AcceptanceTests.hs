@@ -18,7 +18,7 @@ main = do
         "a"
 
     runTest "hello world"
-        "tests/hello_world.bf"
+        "test_programs/hello_world.bf"
         ""
         "Hello World!\n"
 
