@@ -1,3 +1,5 @@
+module Brainfuck where
+
 import Data.Char
 import Data.Maybe
 import qualified Data.Map as M
@@ -21,7 +23,7 @@ data Command =
 data Tape a = Tape
     { currentPos :: Int
     , values     :: M.Map Int a
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 emptyTape = Tape 0 M.empty
 
