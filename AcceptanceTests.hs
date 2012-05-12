@@ -23,6 +23,6 @@ main = do
         "Hello World!\n"
 
     runTest "single character echo"
-        ",."
+        "test_programs/single_char_echo.bf"
         "g"
         "g"
