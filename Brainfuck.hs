@@ -109,7 +109,7 @@ run p d =
         Increment   -> run (tapeMoveRight p) (tapeModifyValue d 0 inc)
         Decrement   -> run (tapeMoveRight p) (tapeModifyValue d 0 dec)
         Print       -> do
-                           putStr $ (:[]) $ chr $ tapeGet d 0
+                           putChar $ chr $ tapeGet d 0
                            run (tapeMoveRight p) d
         Read        -> do
                            c <- getChar
