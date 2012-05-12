@@ -71,34 +71,31 @@ type Data = Tape Int
 --
 
 parse :: String -> Program
-parse str = foo 0 str emptyTape
+parse str = foo (zip [0..length str - 1] str) emptyTape
 
-foo :: Int -> String -> Program -> Program
-foo n []       p = p
-foo n ('>':xs) p = foo (n+1) xs (tapePut n MoveRight p)
-foo n ('<':xs) p = foo (n+1) xs (tapePut n MoveLeft p)
-foo n ('+':xs) p = foo (n+1) xs (tapePut n Increment p)
-foo n ('-':xs) p = foo (n+1) xs (tapePut n Decrement p)
-foo n ('.':xs) p = foo (n+1) xs (tapePut n Print p)
-foo n (',':xs) p = foo (n+1) xs (tapePut n Read p)
-foo n ('[':xs) p = let (innerLoop, _:rest) = parseInnerLoop xs
-                       start             = n
-                       end               = n + length innerLoop + 1
+foo :: [(Int, Char)] -> Program -> Program
+foo []            p = p
+foo ((n, '>'):xs) p = foo xs (tapePut n MoveRight p)
+foo ((n, '<'):xs) p = foo xs (tapePut n MoveLeft p)
+foo ((n, '+'):xs) p = foo xs (tapePut n Increment p)
+foo ((n, '-'):xs) p = foo xs (tapePut n Decrement p)
+foo ((n, '.'):xs) p = foo xs (tapePut n Print p)
+foo ((n, ','):xs) p = foo xs (tapePut n Read p)
+foo ((n, '['):xs) p = let (innerLoop, (n',_):rest) = parseInnerLoop xs
+                      in foo rest
+                       $ tapePut n' (LoopEnd n)
+                       $ foo innerLoop
+                       $ tapePut n (LoopStart n') p
+foo ((n, x):xs)   p = error $ "unknown symbol: " ++ [x]
 
-                       p'                = tapePut start (LoopStart end) p
-                       p''               = foo (start+1) innerLoop p'
-                       p'''              = tapePut end (LoopEnd start) p''
-                   in foo (end+1) rest p'''
-foo n (x:xs)   p = error $ "unknown symbol: " ++ [x]
-
-parseInnerLoop :: String -> (String, String)
-parseInnerLoop str = parseInnerLoop' 0 "" str
+parseInnerLoop :: [(Int, Char)] -> ([(Int, Char)], [(Int, Char)])
+parseInnerLoop str = parseInnerLoop' 0 [] str
 parseInnerLoop' n acc []       = error "unexpected end of input"
-parseInnerLoop' n acc (x:xs)
-    | x == '['            = parseInnerLoop' (n+1) (acc ++ [x]) xs
-    | x == ']' && n == 0  = (acc, x:xs)
-    | x == ']'            = parseInnerLoop' (n-1) (acc ++ [x]) xs
-    | otherwise           = parseInnerLoop' n     (acc ++ [x]) xs
+parseInnerLoop' n acc ((j, x):xs)
+    | x == '['            = parseInnerLoop' (n+1) (acc ++ [(j, x)]) xs
+    | x == ']' && n == 0  = (acc, (j, x):xs)
+    | x == ']'            = parseInnerLoop' (n-1) (acc ++ [(j, x)]) xs
+    | otherwise           = parseInnerLoop' n     (acc ++ [(j, x)]) xs
 
 --
 
@@ -129,4 +126,4 @@ helloWorld = "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.
 
 loopForever = "+[>+.<]"
 
-main = run (parse loopForever) emptyTape
+main = run (parse helloWorld) emptyTape
