@@ -5,6 +5,7 @@ import Data.List
 import Data.Maybe
 import qualified Data.Map as M
 import System
+import System.IO
 
 --
 
@@ -117,6 +118,7 @@ run p d =
         Decrement   -> run (tapeMoveRight p) (tapeModifyValue d 0 dec)
         Print       -> do
                            putChar $ chr $ tapeGet d 0
+                           hFlush stdout
                            run (tapeMoveRight p) d
         Read        -> do
                            c <- getChar
