@@ -3,6 +3,7 @@ module Brainfuck where
 import Data.Char
 import Data.Maybe
 import qualified Data.Map as M
+import System
 
 --
 
@@ -126,8 +127,8 @@ run p d =
 
 --
 
-helloWorld = "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>."
-
-loopForever = "+[>+.<]"
-
-main = run (parse helloWorld) emptyTape
+main = do
+    args <- getArgs
+    case args of
+        [program] -> run (parse program) emptyTape
+        _         -> putStrLn "usage: runhaskell Brainfuck.hs \"your program\""
