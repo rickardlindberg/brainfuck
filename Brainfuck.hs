@@ -1,6 +1,7 @@
 module Brainfuck where
 
 import Data.Char
+import Data.List
 import Data.Maybe
 import qualified Data.Map as M
 import System
@@ -73,9 +74,12 @@ type Data = Tape Int
 type Token = (Int, Char)
 
 parse :: String -> Program
-parse str = parseTokens tokens emptyTape
+parse str = parseTokens (tokenize str) emptyTape
+
+tokenize :: String -> [Token]
+tokenize str = zip [0..length f - 1] f
     where
-        tokens = zip [0..length str - 1] str
+        f = filter (`elem`"<>+-.,[]") str
 
 parseTokens :: [Token] -> Program -> Program
 parseTokens []            p = p
