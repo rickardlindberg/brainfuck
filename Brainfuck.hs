@@ -116,7 +116,7 @@ run p d =
                            run (tapeMoveRight p) d
         Read        -> do
                            c <- getChar
-                           run (tapeMoveRight p) (tapeModifyValue d 0 (const $ digitToInt c))
+                           run (tapeMoveRight p) (tapeModifyValue d 0 (const $ ord c))
         LoopStart n -> if tapeGet d 0 == 0
                            then run (tapeMoveTo n p) d
                            else run (tapeMoveRight p) d
