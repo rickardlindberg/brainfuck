@@ -1,4 +1,4 @@
-import Brainfuck hiding (main)
+import Brainfuck
 import Test.Hspec.HUnit
 import Test.Hspec.Monadic
 import Test.HUnit

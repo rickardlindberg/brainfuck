@@ -1,10 +1,8 @@
 module Brainfuck where
 
 import Data.Char
-import Data.List
 import Data.Maybe
 import qualified Data.Map as M
-import System
 import System.IO
 
 --
@@ -130,13 +128,3 @@ run p d =
                            then run (tapeMoveRight p) d
                            else run (tapeMoveTo n p) d
         NOP         -> putStrLn "done!"
-
---
-
-main = do
-    args <- getArgs
-    case args of
-        [program]
-            | ".bf" `isSuffixOf` program -> readFile program >>= \program -> run (parse program) emptyTape
-            | otherwise                  -> run (parse program) emptyTape
-        _         -> putStrLn "usage: runhaskell Brainfuck.hs \"your program\""
