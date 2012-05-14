@@ -57,4 +57,11 @@ main = runTests
         , expectedOutput = "g"
         }
 
+    , Test
+        { name           = "echo until q"
+        , program        = "test_programs/echo_until_q.bf"
+        , input          = "rewq"
+        , expectedOutput = "rew"
+        }
+
     ]
