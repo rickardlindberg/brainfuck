@@ -1,6 +1,10 @@
 #!/bin/sh
 
-which="versions/initial"
+which="$1"
+
+if [ "" = "$1" ]; then
+    which="versions/initial/"
+fi
 
 outdir="dist"
 
