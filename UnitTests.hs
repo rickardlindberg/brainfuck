@@ -10,5 +10,5 @@ main = hspecX $ do
         it "can parse a simple program" $ do
             parse "+." @?= ( tapePut 1 Print
                            $ tapePut 0 Increment
-                           $ emptyTape
+                           $ (emptyTape NOP)
                            )

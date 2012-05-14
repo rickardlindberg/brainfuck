@@ -22,24 +22,26 @@ data Command =
 --
 
 data Tape a = Tape
-    { currentPos :: Int
-    , values     :: M.Map Int a
+    { currentPos   :: Int
+    , values       :: M.Map Int a
+    , defaultValue :: a
     } deriving (Show, Eq)
 
-emptyTape = Tape 0 M.empty
+emptyTape :: a -> Tape a
+emptyTape def = Tape 0 M.empty def
 
 tapePut :: Int -> a -> Tape a -> Tape a
 tapePut pos value tape = tape { values = newValues }
     where
         newValues = M.insert pos value (values tape)
 
-tapeGet :: Tape a -> a -> a
-tapeGet tape def = fromMaybe def $ M.lookup (currentPos tape) (values tape)
+tapeGet :: Tape a -> a
+tapeGet tape = M.findWithDefault (defaultValue tape) (currentPos tape) (values tape)
 
-tapeModifyValue :: Tape a -> a -> (a -> a) -> Tape a
-tapeModifyValue tape def fn = tape { values = newValues }
+tapeModifyValue :: Tape a -> (a -> a) -> Tape a
+tapeModifyValue tape fn = tape { values = newValues }
     where
-        value     = M.findWithDefault def (currentPos tape) (values tape)
+        value     = M.findWithDefault (defaultValue tape) (currentPos tape) (values tape)
         newValues = M.insert (currentPos tape) (fn value) (values tape)
 
 tapeMoveRight :: Tape a -> Tape a
@@ -73,7 +75,7 @@ type Data = Tape Int
 type Token = (Int, Char)
 
 parse :: String -> Program
-parse str = parseTokens (tokenize str) emptyTape
+parse str = parseTokens (tokenize str) (emptyTape NOP)
 
 tokenize :: String -> [Token]
 tokenize str = zip [0..length f - 1] f
@@ -109,22 +111,22 @@ extractInnerLoop tokens = extractInnerLoop' 0 [] tokens
 
 run :: Program -> Data -> IO ()
 run p d =
-    case tapeGet p NOP of
+    case tapeGet p of
         MoveRight   -> run (tapeMoveRight p) (tapeMoveRight d)
         MoveLeft    -> run (tapeMoveRight p) (tapeMoveLeft d)
-        Increment   -> run (tapeMoveRight p) (tapeModifyValue d 0 inc)
-        Decrement   -> run (tapeMoveRight p) (tapeModifyValue d 0 dec)
+        Increment   -> run (tapeMoveRight p) (tapeModifyValue d inc)
+        Decrement   -> run (tapeMoveRight p) (tapeModifyValue d dec)
         Print       -> do
-                           putChar $ chr $ tapeGet d 0
+                           putChar $ chr $ tapeGet d
                            hFlush stdout
                            run (tapeMoveRight p) d
         Read        -> do
                            c <- getChar
-                           run (tapeMoveRight p) (tapeModifyValue d 0 (const $ ord c))
-        LoopStart n -> if tapeGet d 0 == 0
+                           run (tapeMoveRight p) (tapeModifyValue d (const $ ord c))
+        LoopStart n -> if tapeGet d == 0
                            then run (tapeMoveTo n p) d
                            else run (tapeMoveRight p) d
-        LoopEnd n   -> if tapeGet d 0 == 0
+        LoopEnd n   -> if tapeGet d == 0
                            then run (tapeMoveRight p) d
                            else run (tapeMoveTo n p) d
         NOP         -> putStrLn "done!"
