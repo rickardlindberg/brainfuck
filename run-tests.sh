@@ -24,4 +24,6 @@ echo ">> running acceptance tests" &&
 ./dist/AcceptanceTests &&
 
 echo ">> running performace test" &&
-time echo "abcdefghijklmnopq" | ./dist/Main test_programs/echo_until_q.bf
+time echo "abcdefghijklmnopq" | ./dist/Main test_programs/echo_until_q.bf &&
+
+echo ">> all pass, good work!"
