@@ -130,3 +130,8 @@ run p d =
                            then run (tapeMoveRight p) d
                            else run (tapeMoveTo n p) d
         NOP         -> putStrLn "done!"
+
+--
+
+execute :: String -> IO ()
+execute program = run (parse program) (emptyTape 0)
