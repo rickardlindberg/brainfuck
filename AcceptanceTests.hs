@@ -1,40 +1,60 @@
 import System.Exit
 import System.Process
 
-runTest :: String -> String -> String -> String -> IO Bool
-runTest name program input expectedOutput = do
-    (exit, stdout, stderr) <- readProcessWithExitCode "./dist/Main" [program] input
-    let ex = (expectedOutput ++ "done!\n")
+data Test = Test
+    { name           :: String
+    , program        :: String
+    , input          :: String
+    , expectedOutput :: String
+    }
+
+runTest :: Test -> IO Bool
+runTest test = do
+    (exit, stdout, stderr) <- readProcessWithExitCode "./dist/Main" [program test] (input test)
+    let ex = (expectedOutput test ++ "done!\n")
     if stdout == ex
-        then putStrLn ("success: " ++ name) >>
+        then putStrLn ("success: " ++ name test) >>
              return True
-        else putStrLn ("failure: " ++ name) >>
+        else putStrLn ("failure: " ++ name test) >>
              putStrLn ("  expected: " ++ ex) >>
              putStrLn ("   but got: " ++ stdout) >>
              return False
 
-runTests :: [IO Bool] -> IO ()
+runTests :: [Test] -> IO ()
 runTests tests = do
-    results <- mapM id tests
+    results <- mapM runTest tests
     if any (==False) results
         then exitFailure
         else exitSuccess
 
 main = runTests
 
-    [ runTest "print single char a"
-        "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++."
-        ""
-        "a"
+    [ Test
+        { name           = "print single char a"
+        , program        = "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++."
+        , input          = ""
+        , expectedOutput = "a"
+        }
 
-    , runTest "hello world"
-        "test_programs/hello_world.bf"
-        ""
-        "Hello World!\n"
+    , Test
+        { name           = "print single char a with loop"
+        , program        = "+++++[>+++++++++++++++++++<-]>++."
+        , input          = ""
+        , expectedOutput = "a"
+        }
 
-    , runTest "single character echo"
-        "test_programs/single_char_echo.bf"
-        "g"
-        "g"
+    , Test
+        { name           = "hello world"
+        , program        = "test_programs/hello_world.bf"
+        , input          = ""
+        , expectedOutput = "Hello World!\n"
+        }
+
+    , Test
+        { name           = "single character echo"
+        , program        = "test_programs/single_char_echo.bf"
+        , input          = "g"
+        , expectedOutput = "g"
+        }
 
     ]
