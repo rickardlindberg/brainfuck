@@ -41,13 +41,14 @@ tapeMoveLeft :: IOTape a -> IO ()
 tapeMoveLeft tape = modifyIORef (ioTapePos tape) dec
 
 tapeMoveTo :: IOTape a -> Int -> IO ()
-tapeMoveTo tape n = modifyIORef (ioTapePos tape) (const n)
+tapeMoveTo tape n = writeIORef (ioTapePos tape) n
 
 ioTapeModify :: IOTape a -> (a -> a) -> IO ()
 ioTapeModify tape fn = do
     index <- readIORef (ioTapePos tape)
-    value <- ioTapeValue tape
-    modifyIORef (ioTapeValues tape) (\map -> M.insert index (fn value) map)
+    modifyIORef (ioTapeValues tape) (\map ->
+        let value = fromJust $ M.lookup index map
+        in M.insert index (fn value) map)
 
 ioTapeValue :: IOTape a -> IO a
 ioTapeValue tape = do
