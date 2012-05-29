@@ -3,8 +3,6 @@ module Brainfuck where
 import Data.Array.IO
 import Data.Char
 import Data.IORef
-import Data.Maybe
-import qualified Data.Map as M
 import System.IO
 
 --
@@ -24,15 +22,15 @@ data Command =
 --
 
 data IOTape a = IOTape
-    { ioTapeValues :: IORef (M.Map Int a)
-    , ioTapePos    :: IORef Int
+    { ioTapePos    :: IORef Int
+    , ioTapeArr    :: IOArray Int a
     }
 
 newIOTapeFromList :: [a] -> IO (IOTape a)
 newIOTapeFromList list = do
-    values <- newIORef (M.fromList (zip [0..length list] list))
     pos <- newIORef 0
-    return $ IOTape values pos
+    arr <- newListArray (0, length list - 1) list
+    return $ IOTape pos arr
 
 tapeMoveRight :: IOTape a -> IO ()
 tapeMoveRight tape = modifyIORef (ioTapePos tape) inc
@@ -46,15 +44,14 @@ tapeMoveTo tape n = writeIORef (ioTapePos tape) n
 ioTapeModify :: IOTape a -> (a -> a) -> IO ()
 ioTapeModify tape fn = do
     index <- readIORef (ioTapePos tape)
-    modifyIORef (ioTapeValues tape) (\map ->
-        let value = fromJust $ M.lookup index map
-        in M.insert index (fn value) map)
+    value <- readArray (ioTapeArr tape) index
+    writeArray (ioTapeArr tape) index (fn value)
 
 ioTapeValue :: IOTape a -> IO a
 ioTapeValue tape = do
     index <- readIORef (ioTapePos tape)
-    map <- readIORef (ioTapeValues tape)
-    return $ fromJust $ M.lookup index map
+    value <- readArray (ioTapeArr tape) index
+    return value
 
 --
 
