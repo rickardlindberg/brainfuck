@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 which="$1"
 
@@ -8,8 +8,8 @@ fi
 
 outdir="dist"
 
-function log() {
-    echo -e "\033[1m>> $1\033[0m"
+log() {
+    printf "%b" "\033[1m>> $1\033[0m\n"
 }
 
 log "cleaning" &&
