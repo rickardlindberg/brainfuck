@@ -1,0 +1,1 @@
+This implementation optimizes Brainfuck programs. It uses IOArray for tape.
