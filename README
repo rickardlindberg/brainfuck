@@ -1,0 +1,7 @@
+This repository contains a few different Haskell implementations of the
+Brainfuck programming language.
+
+It also contains a small framework for testing these different implementations.
+
+To write your own, copy the template in versions/template. Then run
+`./run-tests.sh versions/your_version'.
