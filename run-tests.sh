@@ -13,11 +13,15 @@ function log() {
 }
 
 log "cleaning" &&
-rm -rf $outdir &&
+rm -rf $outdir MainProfiling.prof &&
 mkdir $outdir &&
 
 log "compiling main program" &&
 ghc -O2 -i$which --make -outputdir $outdir -o $outdir/Main Main.hs &&
+
+log "compiling main program with profiling support" &&
+profiling="-rtsopts -prof -auto-all -caf-all -fforce-recomp" &&
+ghc $profiling -O2 -i$which --make -outputdir $outdir -o $outdir/MainProfiling Main.hs &&
 
 log "compiling unit test program" &&
 ghc -O2 -i$which --make -outputdir $outdir -o $outdir/UnitTests $which/UnitTests.hs &&
@@ -33,5 +37,8 @@ log "running acceptance tests" &&
 
 log "running performace test" &&
 time echo "abcdefghijklmnopq" | ./dist/Main test_programs/echo_until_q.bf &&
+
+log "running profiling test" &&
+echo "abcdefghijklmnopq" | ./dist/MainProfiling test_programs/echo_until_q.bf +RTS -sstderr -p &&
 
 log "all pass, good work!"
