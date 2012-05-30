@@ -8,14 +8,15 @@ import System.IO
 --
 
 data Command =
-      MoveRight
-    | MoveLeft
-    | Increment
-    | Decrement
+      MoveRight Int
+    | MoveLeft Int
+    | Increment Int
+    | Decrement Int
     | Print
     | Read
     | LoopStart Int
     | LoopEnd Int
+    | Loop [Command]
     | NOP
     deriving (Show, Eq)
 
@@ -32,11 +33,11 @@ newIOTapeFromList list = do
     arr <- newListArray (0, length list - 1) list
     return $ IOTape pos arr
 
-tapeMoveRight :: IOTape a -> IO ()
-tapeMoveRight tape = modifyIORef (ioTapePos tape) inc
+tapeMoveRightBy :: IOTape a -> Int -> IO ()
+tapeMoveRightBy tape n = modifyIORef (ioTapePos tape) (+n)
 
-tapeMoveLeft :: IOTape a -> IO ()
-tapeMoveLeft tape = modifyIORef (ioTapePos tape) dec
+tapeMoveLeftBy :: IOTape a -> Int -> IO ()
+tapeMoveLeftBy tape n = modifyIORef (ioTapePos tape) (\x -> x-n)
 
 tapeMoveTo :: IOTape a -> Int -> IO ()
 tapeMoveTo tape n = writeIORef (ioTapePos tape) n
@@ -55,44 +56,60 @@ tapeCurrentValue tape = do
 
 --
 
-inc :: Int -> Int
-inc x = x + 1
+incBy :: Int -> Int -> Int
+incBy n x = x + n
 
-dec :: Int -> Int
-dec x = x - 1
+decBy :: Int -> Int -> Int
+decBy n x = x - n
 
 --
 
-type Token = (Int, Char)
-
 parse :: String -> [Command]
-parse str = parseTokens (tokenize str)
+parse str = expandLoops $ optimize $ parseCommands (removeComments str)
 
-tokenize :: String -> [Token]
-tokenize str = zip [0..length validCharacters - 1] validCharacters
-    where
-        validCharacters = filter (`elem` "<>+-.,[]") str
+removeComments :: String -> String
+removeComments str = filter (`elem` "<>+-.,[]") str
 
-parseTokens :: [Token] -> [Command]
-parseTokens []            = []
-parseTokens ((_, '<'):xs) = MoveLeft  : parseTokens xs
-parseTokens ((_, '>'):xs) = MoveRight : parseTokens xs
-parseTokens ((_, '+'):xs) = Increment : parseTokens xs
-parseTokens ((_, '-'):xs) = Decrement : parseTokens xs
-parseTokens ((_, '.'):xs) = Print     : parseTokens xs
-parseTokens ((_, ','):xs) = Read      : parseTokens xs
-parseTokens ((n, '['):xs) = let (innerLoop, (n',_):rest) = extractInnerLoop xs
-                            in ((LoopStart n') : parseTokens innerLoop) ++ [LoopEnd n] ++ parseTokens rest
+parseCommands :: String -> [Command]
+parseCommands []       = []
+parseCommands ('<':xs) = MoveLeft  1 : parseCommands xs
+parseCommands ('>':xs) = MoveRight 1 : parseCommands xs
+parseCommands ('+':xs) = Increment 1 : parseCommands xs
+parseCommands ('-':xs) = Decrement 1 : parseCommands xs
+parseCommands ('.':xs) = Print       : parseCommands xs
+parseCommands (',':xs) = Read        : parseCommands xs
+parseCommands ('[':xs) = let (innerLoop, _:rest) = extractInnerLoop xs
+                         in Loop (parseCommands innerLoop) : parseCommands rest
 
-extractInnerLoop :: [Token] -> ([Token], [Token])
+extractInnerLoop :: String -> (String, String)
 extractInnerLoop tokens = extractInnerLoop' 0 [] tokens
     where
         extractInnerLoop' n acc [] = error "unexpected end of input"
-        extractInnerLoop' n acc ((j, x):xs)
-            | x == '['             = extractInnerLoop' (n+1) (acc ++ [(j, x)]) xs
-            | x == ']' && n == 0   = (acc, (j, x):xs)
-            | x == ']'             = extractInnerLoop' (n-1) (acc ++ [(j, x)]) xs
-            | otherwise            = extractInnerLoop' n     (acc ++ [(j, x)]) xs
+        extractInnerLoop' n acc (x:xs)
+            | x == '['             = extractInnerLoop' (n+1) (acc ++ [x]) xs
+            | x == ']' && n == 0   = (acc, x:xs)
+            | x == ']'             = extractInnerLoop' (n-1) (acc ++ [x]) xs
+            | otherwise            = extractInnerLoop' n     (acc ++ [x]) xs
+
+optimize :: [Command] -> [Command]
+optimize []                                 = []
+optimize ((MoveLeft  n):(MoveLeft  j):rest) = optimize (MoveLeft  (n+j) : rest)
+optimize ((MoveRight n):(MoveRight j):rest) = optimize (MoveRight (n+j) : rest)
+optimize ((Increment n):(Increment j):rest) = optimize (Increment (n+j) : rest)
+optimize ((Decrement n):(Decrement j):rest) = optimize (Decrement (n+j) : rest)
+optimize (Loop cmds:rest)                   = Loop (optimize cmds) : optimize rest
+optimize (cmd:rest)                         = cmd : optimize rest
+
+expandLoops :: [Command] -> [Command]
+expandLoops commands = expandLoops' commands 0
+    where
+        expandLoops' []                 _ = []
+        expandLoops' ((Loop cmds):rest) n = let loop  = expandLoops' cmds (n+1)
+                                                loopStartN = n
+                                                afterLoopN = n + length loop + 2
+                                                loopEndN = afterLoopN - 1
+                                            in LoopStart loopEndN : loop ++ [LoopEnd loopStartN] ++ expandLoops' rest afterLoopN
+        expandLoops' (cmd:rest)         n = cmd : expandLoops' rest (n + 1)
 
 --
 
@@ -101,16 +118,18 @@ execute str = do
     prog <- newIOTapeFromList $ parse str ++ [NOP]
     dat  <- newIOTapeFromList [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     let loop = do
-        let continue     = tapeMoveRight prog   >> loop
+        let continue     = tapeMoveRightBy prog  1  >> loop
         let continueAt n = tapeMoveTo    prog n >> loop
         command <- tapeCurrentValue prog
         case command of
-            MoveRight   -> tapeMoveRight dat     >> continue
-            MoveLeft    -> tapeMoveLeft  dat     >> continue
-            Increment   -> tapeModify    dat inc >> continue
-            Decrement   -> tapeModify    dat dec >> continue
-            Print       -> tapeCurrentValue dat >>= (putChar . chr) >> hFlush stdout >> continue
-            Read        -> getChar >>= (\v -> tapeModify dat (const $ ord $ v)) >> continue
+            MoveRight n -> tapeMoveRightBy dat n         >> continue
+            MoveLeft  n -> tapeMoveLeftBy  dat n         >> continue
+            Increment n -> tapeModify      dat (incBy n) >> continue
+            Decrement n -> tapeModify      dat (decBy n) >> continue
+            Print       -> tapeCurrentValue dat >>= (putChar . chr) >> hFlush stdout
+                                                         >> continue
+            Read        -> getChar >>= (\v -> tapeModify dat (const $ ord $ v))
+                                                         >> continue
             LoopStart n -> tapeCurrentValue dat >>= \v -> if v == 0 then continueAt n else continue
             LoopEnd n   -> tapeCurrentValue dat >>= \v -> if v == 0 then continue     else continueAt n
             NOP         -> putStrLn "done!"

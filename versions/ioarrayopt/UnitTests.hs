@@ -11,19 +11,19 @@ main = hspecX $ do
 
         it "can parse a simple program" $
             parse "<>+-.," @?=
-                [ MoveLeft
-                , MoveRight
-                , Increment
-                , Decrement
+                [ MoveLeft 1
+                , MoveRight 1
+                , Increment 1
+                , Decrement 1
                 , Print
                 , Read
                 ]
 
         it "can parse a program with loops" $
             parse "+[-[.]]." @?=
-                [ Increment
+                [ Increment 1
                 , LoopStart 6
-                , Decrement
+                , Decrement 1
                 , LoopStart 5
                 , Print
                 , LoopEnd 3
@@ -31,9 +31,10 @@ main = hspecX $ do
                 , Print
                 ]
 
-        prop "creates one token per valid character" $
-            forAll programWithOnlyValidChars $ \p ->
-                length p == length (parse p)
+    describe "optimizer:" $ do
+
+        it "reduces multiple increments" $
+            optimize [Increment 2, Increment 1] @?= [Increment 3]
 
     describe "io tape:" $ do
 
@@ -44,9 +45,9 @@ main = hspecX $ do
 
         it "position can be moved left and right" $ do
             tape <- newIOTapeFromList [1, 2, 3]
-            tapeMoveRight tape
-            tapeMoveRight tape
-            tapeMoveLeft tape
+            tapeMoveRightBy tape 1
+            tapeMoveRightBy tape 1
+            tapeMoveLeftBy tape 1
             value <- tapeCurrentValue tape
             value @?= 2
 
@@ -58,14 +59,6 @@ main = hspecX $ do
 
         it "value can be modified" $ do
             tape <- newIOTapeFromList [9]
-            tapeModify tape dec
+            tapeModify tape (+1)
             value <- tapeCurrentValue tape
-            value @?= 8
-
-programWithOnlyValidChars :: Gen String
-programWithOnlyValidChars =
-    oneof [ listOf (elements "<>+-.,")
-          , do
-              p <- programWithOnlyValidChars
-              return $ "[" ++ p ++ "]"
-          ]
+            value @?= 10
