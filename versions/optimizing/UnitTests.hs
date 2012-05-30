@@ -7,10 +7,10 @@ import Test.QuickCheck
 
 main = hspecX $ do
 
-    describe "parser:" $ do
+    describe "compiler:" $ do
 
-        it "can parse a simple program" $
-            parse "<+>-.," @?=
+        it "can compile a simple program" $
+            compile "<+>-.," @?=
                 [ BMoveBy (-1)
                 , BModifyBy 1
                 , BMoveBy 1
@@ -20,8 +20,8 @@ main = hspecX $ do
                 , BNOP
                 ]
 
-        it "can parse a program with loops" $
-            parse "+[-[.]]." @?=
+        it "can compile a program with loops" $
+            compile "+[-[.]]." @?=
                 [ BModifyBy 1
                 , BLoopStart 6
                 , BModifyBy (-1)

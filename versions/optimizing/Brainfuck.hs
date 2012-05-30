@@ -58,22 +58,21 @@ tapeCurrentValue tape = do
 
 --
 
-parse :: String -> [ByteCode]
-parse = append BNOP . toByteCode . optimize . parseProgram . removeComments
+compile :: String -> [ByteCode]
+compile = append BNOP . toByteCode . optimize . parse
 
-removeComments :: String -> String
-removeComments str = filter (`elem` "<>+-.,[]") str
-
-parseProgram :: String -> [Program]
-parseProgram []       = []
-parseProgram ('<':xs) = MoveBy   (-1) : parseProgram xs
-parseProgram ('>':xs) = MoveBy     1  : parseProgram xs
-parseProgram ('+':xs) = ModifyBy   1  : parseProgram xs
-parseProgram ('-':xs) = ModifyBy (-1) : parseProgram xs
-parseProgram ('.':xs) = Print         : parseProgram xs
-parseProgram (',':xs) = Read          : parseProgram xs
-parseProgram ('[':xs) = let (innerLoop, _:rest) = extractInnerLoop xs
-                        in Loop (parseProgram innerLoop) : parseProgram rest
+parse :: String -> [Program]
+parse []       = []
+parse (x:xs) | x `notElem` "<>+-.,[]" = parse xs
+parse ('<':xs) = MoveBy   (-1) : parse xs
+parse ('>':xs) = MoveBy     1  : parse xs
+parse ('+':xs) = ModifyBy   1  : parse xs
+parse ('-':xs) = ModifyBy (-1) : parse xs
+parse ('.':xs) = Print         : parse xs
+parse (',':xs) = Read          : parse xs
+parse ('[':xs) = let (innerLoop, ']':rest) = extractInnerLoop xs
+                 in Loop (parse innerLoop) : parse rest
+--parse (_  :xs) = parse xs
 
 extractInnerLoop :: String -> (String, String)
 extractInnerLoop tokens = extractInnerLoop' 0 [] tokens
@@ -113,7 +112,7 @@ append item list = list ++ [item]
 
 execute :: String -> IO ()
 execute str = do
-    prog <- newIOTapeFromList $ parse str
+    prog <- newIOTapeFromList $ compile str
     dat  <- newIOTapeFromList [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     let loop = do
         let continue     = tapeMoveBy prog 1 >> loop
