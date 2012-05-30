@@ -1,1 +1,1 @@
-This implementation uses IOArray for the tape data type to improve performance.
+Same as ioarray but optimizes programs before running them (different parser).
