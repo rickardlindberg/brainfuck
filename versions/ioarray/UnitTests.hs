@@ -31,14 +31,15 @@ main = hspecX $ do
                 , Print
                 ]
 
-        prop "creates one token per valid character" $ forAll validProgram $ \p ->
-            length p == length (parse p)
+        prop "creates one token per valid character" $
+            forAll programWithOnlyValidChars $ \p ->
+                length p == length (parse p)
 
     describe "io tape:" $ do
 
         it "initializes from list" $ do
             tape <- newIOTapeFromList [8]
-            value <- ioTapeValue tape
+            value <- tapeCurrentValue tape
             value @?= 8
 
         it "position can be moved left and right" $ do
@@ -46,24 +47,25 @@ main = hspecX $ do
             tapeMoveRight tape
             tapeMoveRight tape
             tapeMoveLeft tape
-            value <- ioTapeValue tape
+            value <- tapeCurrentValue tape
             value @?= 2
 
         it "position can be moved to exact position" $ do
             tape <- newIOTapeFromList [1, 2, 3]
             tapeMoveTo tape 2
-            value <- ioTapeValue tape
+            value <- tapeCurrentValue tape
             value @?= 3
 
         it "value can be modified" $ do
             tape <- newIOTapeFromList [9]
-            ioTapeModify tape dec
-            value <- ioTapeValue tape
+            tapeModify tape dec
+            value <- tapeCurrentValue tape
             value @?= 8
 
-validProgram :: Gen String
-validProgram = oneof [ listOf (elements "<>+-.,")
-                     , do
-                         p <- validProgram
-                         return $ "[" ++ p ++ "]"
-                     ]
+programWithOnlyValidChars :: Gen String
+programWithOnlyValidChars =
+    oneof [ listOf (elements "<>+-.,")
+          , do
+              p <- programWithOnlyValidChars
+              return $ "[" ++ p ++ "]"
+          ]
