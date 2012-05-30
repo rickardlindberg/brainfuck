@@ -8,26 +8,30 @@ fi
 
 outdir="dist"
 
-echo ">> cleaning" &&
+function log() {
+    echo -e "\033[1m>> $1\033[0m"
+}
+
+log "cleaning" &&
 rm -rf $outdir &&
 mkdir $outdir &&
 
-echo ">> compiling main program" &&
+log "compiling main program" &&
 ghc -i$which --make -outputdir $outdir -o $outdir/Main Main.hs &&
 
-echo ">> compiling unit test program" &&
+log "compiling unit test program" &&
 ghc -i$which --make -outputdir $outdir -o $outdir/UnitTests $which/UnitTests.hs &&
 
-echo ">> compiling acceptance test program" &&
+log "compiling acceptance test program" &&
 ghc --make -outputdir $outdir -o $outdir/AcceptanceTests AcceptanceTests.hs &&
 
-echo ">> running unit tests" &&
+log "running unit tests" &&
 ./dist/UnitTests &&
 
-echo ">> running acceptance tests" &&
+log "running acceptance tests" &&
 ./dist/AcceptanceTests &&
 
-echo ">> running performace test" &&
+log "running performace test" &&
 time echo "abcdefghijklmnopq" | ./dist/Main test_programs/echo_until_q.bf &&
 
-echo ">> all pass, good work!"
+log "all pass, good work!"
