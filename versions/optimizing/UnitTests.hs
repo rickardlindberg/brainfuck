@@ -10,31 +10,33 @@ main = hspecX $ do
     describe "parser:" $ do
 
         it "can parse a simple program" $
-            parse "<>+-.," @?=
-                [ MoveLeft 1
-                , MoveRight 1
-                , Increment 1
-                , Decrement 1
-                , Print
-                , Read
+            parse "<+>-.," @?=
+                [ BMoveBy (-1)
+                , BModifyBy 1
+                , BMoveBy 1
+                , BModifyBy (-1)
+                , BPrint
+                , BRead
+                , BNOP
                 ]
 
         it "can parse a program with loops" $
             parse "+[-[.]]." @?=
-                [ Increment 1
-                , LoopStart 6
-                , Decrement 1
-                , LoopStart 5
-                , Print
-                , LoopEnd 3
-                , LoopEnd 1
-                , Print
+                [ BModifyBy 1
+                , BLoopStart 6
+                , BModifyBy (-1)
+                , BLoopStart 5
+                , BPrint
+                , BLoopEnd 3
+                , BLoopEnd 1
+                , BPrint
+                , BNOP
                 ]
 
     describe "optimizer:" $ do
 
         it "reduces multiple increments" $
-            optimize [Increment 2, Increment 1] @?= [Increment 3]
+            optimize [ModifyBy 2, ModifyBy 1] @?= [ModifyBy 3]
 
     describe "io tape:" $ do
 
@@ -45,9 +47,7 @@ main = hspecX $ do
 
         it "position can be moved left and right" $ do
             tape <- newIOTapeFromList [1, 2, 3]
-            tapeMoveRightBy tape 1
-            tapeMoveRightBy tape 1
-            tapeMoveLeftBy tape 1
+            tapeMoveBy tape 1
             value <- tapeCurrentValue tape
             value @?= 2
 

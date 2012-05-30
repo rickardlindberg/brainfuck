@@ -7,17 +7,22 @@ import System.IO
 
 --
 
-data Command =
-      MoveRight Int
-    | MoveLeft Int
-    | Increment Int
-    | Decrement Int
+data Program =
+      MoveBy Int
+    | ModifyBy Int
     | Print
     | Read
-    | LoopStart Int
-    | LoopEnd Int
-    | Loop [Command]
-    | NOP
+    | Loop [Program]
+    deriving (Show, Eq)
+
+data ByteCode =
+      BMoveBy Int
+    | BModifyBy Int
+    | BPrint
+    | BRead
+    | BLoopStart Int
+    | BLoopEnd Int
+    | BNOP
     deriving (Show, Eq)
 
 --
@@ -33,11 +38,8 @@ newIOTapeFromList list = do
     arr <- newListArray (0, length list - 1) list
     return $ IOTape pos arr
 
-tapeMoveRightBy :: IOTape a -> Int -> IO ()
-tapeMoveRightBy tape n = modifyIORef (ioTapePos tape) (+n)
-
-tapeMoveLeftBy :: IOTape a -> Int -> IO ()
-tapeMoveLeftBy tape n = modifyIORef (ioTapePos tape) (\x -> x-n)
+tapeMoveBy :: IOTape a -> Int -> IO ()
+tapeMoveBy tape n = modifyIORef (ioTapePos tape) (+n)
 
 tapeMoveTo :: IOTape a -> Int -> IO ()
 tapeMoveTo tape n = writeIORef (ioTapePos tape) n
@@ -56,30 +58,22 @@ tapeCurrentValue tape = do
 
 --
 
-incBy :: Int -> Int -> Int
-incBy n x = x + n
-
-decBy :: Int -> Int -> Int
-decBy n x = x - n
-
---
-
-parse :: String -> [Command]
-parse str = expandLoops $ optimize $ parseCommands (removeComments str)
+parse :: String -> [ByteCode]
+parse = append BNOP . toByteCode . optimize . parseProgram . removeComments
 
 removeComments :: String -> String
 removeComments str = filter (`elem` "<>+-.,[]") str
 
-parseCommands :: String -> [Command]
-parseCommands []       = []
-parseCommands ('<':xs) = MoveLeft  1 : parseCommands xs
-parseCommands ('>':xs) = MoveRight 1 : parseCommands xs
-parseCommands ('+':xs) = Increment 1 : parseCommands xs
-parseCommands ('-':xs) = Decrement 1 : parseCommands xs
-parseCommands ('.':xs) = Print       : parseCommands xs
-parseCommands (',':xs) = Read        : parseCommands xs
-parseCommands ('[':xs) = let (innerLoop, _:rest) = extractInnerLoop xs
-                         in Loop (parseCommands innerLoop) : parseCommands rest
+parseProgram :: String -> [Program]
+parseProgram []       = []
+parseProgram ('<':xs) = MoveBy   (-1) : parseProgram xs
+parseProgram ('>':xs) = MoveBy     1  : parseProgram xs
+parseProgram ('+':xs) = ModifyBy   1  : parseProgram xs
+parseProgram ('-':xs) = ModifyBy (-1) : parseProgram xs
+parseProgram ('.':xs) = Print         : parseProgram xs
+parseProgram (',':xs) = Read          : parseProgram xs
+parseProgram ('[':xs) = let (innerLoop, _:rest) = extractInnerLoop xs
+                        in Loop (parseProgram innerLoop) : parseProgram rest
 
 extractInnerLoop :: String -> (String, String)
 extractInnerLoop tokens = extractInnerLoop' 0 [] tokens
@@ -91,46 +85,48 @@ extractInnerLoop tokens = extractInnerLoop' 0 [] tokens
             | x == ']'             = extractInnerLoop' (n-1) (acc ++ [x]) xs
             | otherwise            = extractInnerLoop' n     (acc ++ [x]) xs
 
-optimize :: [Command] -> [Command]
-optimize []                                 = []
-optimize ((MoveLeft  n):(MoveLeft  j):rest) = optimize (MoveLeft  (n+j) : rest)
-optimize ((MoveRight n):(MoveRight j):rest) = optimize (MoveRight (n+j) : rest)
-optimize ((Increment n):(Increment j):rest) = optimize (Increment (n+j) : rest)
-optimize ((Decrement n):(Decrement j):rest) = optimize (Decrement (n+j) : rest)
-optimize (Loop cmds:rest)                   = Loop (optimize cmds) : optimize rest
-optimize (cmd:rest)                         = cmd : optimize rest
+optimize :: [Program] -> [Program]
+optimize []                               = []
+optimize ((MoveBy   a):(MoveBy   b):rest) = optimize (MoveBy   (a+b) : rest)
+optimize ((ModifyBy a):(ModifyBy b):rest) = optimize (ModifyBy (a+b) : rest)
+optimize (Loop cmds                :rest) = Loop (optimize cmds) : optimize rest
+optimize (cmd                      :rest) = cmd                  : optimize rest
 
-expandLoops :: [Command] -> [Command]
-expandLoops commands = expandLoops' commands 0
+toByteCode :: [Program] -> [ByteCode]
+toByteCode commands = toByteCode' commands 0
     where
-        expandLoops' []                 _ = []
-        expandLoops' ((Loop cmds):rest) n = let loop  = expandLoops' cmds (n+1)
-                                                loopStartN = n
-                                                afterLoopN = n + length loop + 2
-                                                loopEndN = afterLoopN - 1
-                                            in LoopStart loopEndN : loop ++ [LoopEnd loopStartN] ++ expandLoops' rest afterLoopN
-        expandLoops' (cmd:rest)         n = cmd : expandLoops' rest (n + 1)
+        toByteCode' []                 _ = []
+        toByteCode' (MoveBy x   :rest) n = BMoveBy x   : toByteCode' rest (n + 1)
+        toByteCode' (ModifyBy x :rest) n = BModifyBy x : toByteCode' rest (n + 1)
+        toByteCode' (Print      :rest) n = BPrint      : toByteCode' rest (n + 1)
+        toByteCode' (Read       :rest) n = BRead       : toByteCode' rest (n + 1)
+        toByteCode' ((Loop cmds):rest) n = let loop  = toByteCode' cmds (n+1)
+                                               loopStartN = n
+                                               afterLoopN = n + length loop + 2
+                                               loopEndN = afterLoopN - 1
+                                           in BLoopStart loopEndN : loop ++ [BLoopEnd loopStartN] ++ toByteCode' rest afterLoopN
+
+append :: a -> [a] -> [a]
+append item list = list ++ [item]
 
 --
 
 execute :: String -> IO ()
 execute str = do
-    prog <- newIOTapeFromList $ parse str ++ [NOP]
+    prog <- newIOTapeFromList $ parse str
     dat  <- newIOTapeFromList [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     let loop = do
-        let continue     = tapeMoveRightBy prog  1  >> loop
-        let continueAt n = tapeMoveTo    prog n >> loop
+        let continue     = tapeMoveBy prog 1 >> loop
+        let continueAt n = tapeMoveTo prog n >> loop
         command <- tapeCurrentValue prog
         case command of
-            MoveRight n -> tapeMoveRightBy dat n         >> continue
-            MoveLeft  n -> tapeMoveLeftBy  dat n         >> continue
-            Increment n -> tapeModify      dat (incBy n) >> continue
-            Decrement n -> tapeModify      dat (decBy n) >> continue
-            Print       -> tapeCurrentValue dat >>= (putChar . chr) >> hFlush stdout
-                                                         >> continue
-            Read        -> getChar >>= (\v -> tapeModify dat (const $ ord $ v))
-                                                         >> continue
-            LoopStart n -> tapeCurrentValue dat >>= \v -> if v == 0 then continueAt n else continue
-            LoopEnd n   -> tapeCurrentValue dat >>= \v -> if v == 0 then continue     else continueAt n
-            NOP         -> putStrLn "done!"
+            BMoveBy n    -> tapeMoveBy dat n         >> continue
+            BModifyBy n  -> tapeModify dat (+n)      >> continue
+            BPrint       -> tapeCurrentValue dat >>= (putChar . chr) >> hFlush stdout
+                                                     >> continue
+            BRead        -> getChar >>= (\v -> tapeModify dat (const $ ord $ v))
+                                                     >> continue
+            BLoopStart n -> tapeCurrentValue dat >>= \v -> if v == 0 then continueAt n else continue
+            BLoopEnd n   -> tapeCurrentValue dat >>= \v -> if v == 0 then continue     else continueAt n
+            BNOP         -> putStrLn "done!"
     loop
