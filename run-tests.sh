@@ -17,13 +17,13 @@ rm -rf $outdir &&
 mkdir $outdir &&
 
 log "compiling main program" &&
-ghc -i$which --make -outputdir $outdir -o $outdir/Main Main.hs &&
+ghc -O2 -i$which --make -outputdir $outdir -o $outdir/Main Main.hs &&
 
 log "compiling unit test program" &&
-ghc -i$which --make -outputdir $outdir -o $outdir/UnitTests $which/UnitTests.hs &&
+ghc -O2 -i$which --make -outputdir $outdir -o $outdir/UnitTests $which/UnitTests.hs &&
 
 log "compiling acceptance test program" &&
-ghc --make -outputdir $outdir -o $outdir/AcceptanceTests AcceptanceTests.hs &&
+ghc -O2 --make -outputdir $outdir -o $outdir/AcceptanceTests AcceptanceTests.hs &&
 
 log "running unit tests" &&
 ./dist/UnitTests &&
