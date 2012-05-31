@@ -63,7 +63,6 @@ compile = append BNOP . toByteCode . optimize . parse
 
 parse :: String -> [Program]
 parse []       = []
-parse (x:xs) | x `notElem` "<>+-.,[]" = parse xs
 parse ('<':xs) = MoveBy   (-1) : parse xs
 parse ('>':xs) = MoveBy     1  : parse xs
 parse ('+':xs) = ModifyBy   1  : parse xs
@@ -72,7 +71,7 @@ parse ('.':xs) = Print         : parse xs
 parse (',':xs) = Read          : parse xs
 parse ('[':xs) = let (innerLoop, ']':rest) = extractInnerLoop xs
                  in Loop (parse innerLoop) : parse rest
---parse (_  :xs) = parse xs
+parse (_  :xs) = parse xs
 
 extractInnerLoop :: String -> (String, String)
 extractInnerLoop tokens = extractInnerLoop' 0 [] tokens

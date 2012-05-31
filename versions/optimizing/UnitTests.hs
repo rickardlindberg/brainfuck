@@ -7,6 +7,31 @@ import Test.QuickCheck
 
 main = hspecX $ do
 
+    describe "parser:" $ do
+
+        it "can parse a simple program" $
+            parse "<+>-.," @?=
+                [ MoveBy (-1)
+                , ModifyBy 1
+                , MoveBy 1
+                , ModifyBy (-1)
+                , Print
+                , Read
+                ]
+
+        it "can parse a program with loops" $
+            parse "+[-[.]]." @?=
+                [ ModifyBy 1
+                , Loop [ ModifyBy (-1)
+                       , Loop [ Print ]
+                       ]
+                , Print
+                ]
+
+        prop "parses to the same thing if comments included" $
+            forAll aProgram $ \(p, pWithComments) ->
+                parse p == parse pWithComments
+
     describe "compiler:" $ do
 
         it "can compile a simple program" $
@@ -62,3 +87,14 @@ main = hspecX $ do
             tapeModify tape (+1)
             value <- tapeCurrentValue tape
             value @?= 10
+
+aProgram :: Gen (String, String)
+aProgram = do
+    p <- oneof [ listOf (elements "<>+-.,")
+               , do
+                   (innerP, _) <- aProgram
+                   return $ "[" ++ innerP ++ "]"
+               ]
+    comments <- vectorOf (length p) (listOf (elements " #\n=/"))
+    let programWithComments = concatMap (\(p, c) -> p:c) (zip p comments)
+    return (p, programWithComments)
