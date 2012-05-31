@@ -17,17 +17,17 @@ rm -rf $outdir MainProfiling.prof &&
 mkdir $outdir &&
 
 log "compiling main program" &&
-ghc -O2 -i$which --make -outputdir $outdir -o $outdir/Main Main.hs &&
+ghc -O1 -i$which --make -outputdir $outdir -o $outdir/Main Main.hs &&
 
 log "compiling main program with profiling support" &&
 profiling="-rtsopts -prof -auto-all -caf-all -fforce-recomp" &&
-ghc $profiling -O2 -i$which --make -outputdir $outdir -o $outdir/MainProfiling Main.hs &&
+ghc $profiling -O1 -i$which --make -outputdir $outdir -o $outdir/MainProfiling Main.hs &&
 
 log "compiling unit test program" &&
-ghc -O2 -i$which --make -outputdir $outdir -o $outdir/UnitTests $which/UnitTests.hs &&
+ghc -O1 -i$which --make -outputdir $outdir -o $outdir/UnitTests $which/UnitTests.hs &&
 
 log "compiling acceptance test program" &&
-ghc -O2 --make -outputdir $outdir -o $outdir/AcceptanceTests AcceptanceTests.hs &&
+ghc -O1 --make -outputdir $outdir -o $outdir/AcceptanceTests AcceptanceTests.hs &&
 
 log "running unit tests" &&
 ./dist/UnitTests &&
