@@ -39,21 +39,25 @@ data Instruction
     | Right
     | Print
     | Read
-    | Loop [Instruction]
+    | Loop [Instruction] [Instruction]
     deriving (Show, Eq)
 
 parse :: String -> [Instruction]
 parse [] = []
 parse (x:xs)
     | x == ']'          = error "unexpected ]"
-    | x == '['          = let (loop, afterLoop) = parseLoop xs loop [] in
-                          loop          : parse afterLoop
+    | x == '['          = [parseLoop xs]
     | x `elem` "+-<>.," = parseSingle x : parse xs
     | otherwise         =                 parse xs
 
-parseLoop :: String -> Instruction -> [Instruction] -> (Instruction, String)
-parseLoop (']':rest) self acc = (Loop (acc ++ [self]), rest)
-parseLoop (x  :rest) self acc = parseLoop rest self (acc ++ [parseSingle x])
+parseLoop :: String -> Instruction
+parseLoop input = let (innerLoop, rest) = parseInnerLoop input
+                      loop              = Loop (innerLoop ++ [loop]) (parse rest)
+                  in loop
+
+parseInnerLoop :: String -> ([Instruction], String)
+parseInnerLoop (']':xs) = ([], xs)
+parseInnerLoop (x  :xs) = let (x', xs') = parseInnerLoop xs in (parseSingle x:x', xs')
 
 parseSingle :: Char -> Instruction
 parseSingle '+' = Inc
@@ -72,7 +76,7 @@ run (Right:next)   input  dat = run next input (dataMoveRight dat)
 run (Print:next)   input  dat = chr (dataGet dat) : run next input dat
 run (Read:next)    []     dat = error "no input"
 run (Read:next)    (i:is) dat = run next is (dataModifyValue dat (const (ord i)))
-run (Loop xs:next) input  dat = if dataGet dat == 0
+run (Loop xs next:_) input  dat = if dataGet dat == 0
                                     then run next input dat
                                     else run xs input dat
 
