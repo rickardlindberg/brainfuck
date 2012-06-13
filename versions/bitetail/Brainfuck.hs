@@ -56,8 +56,11 @@ parseLoop input = let (innerLoop, rest) = parseInnerLoop input
                   in loop
 
 parseInnerLoop :: String -> ([Instruction], String)
+parseInnerLoop ('[':xs) = ([parseLoop xs], "")
 parseInnerLoop (']':xs) = ([], xs)
-parseInnerLoop (x  :xs) = let (x', xs') = parseInnerLoop xs in (parseSingle x:x', xs')
+parseInnerLoop (x  :xs)
+    | x `elem` "+-<>.," = let (x', xs') = parseInnerLoop xs in (parseSingle x:x', xs')
+    | otherwise         = parseInnerLoop xs
 
 parseSingle :: Char -> Instruction
 parseSingle '+' = Inc

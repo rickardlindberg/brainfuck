@@ -25,7 +25,7 @@ main = hspecX $ do
             loopList !! 2 @?= Inc
             loopList !! 3 @?= Left
 
-            --show (take 1 loopList) @?= ""
+            1 @?= 1
 
     describe "running" $ do
 
