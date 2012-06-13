@@ -2,7 +2,7 @@ module Main where
 
 import Brainfuck
 import Data.List
-import System
+import System.Environment
 
 main = do
     args <- getArgs
