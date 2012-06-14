@@ -42,6 +42,9 @@ data Instruction
     | Loop [Instruction]
     deriving (Show, Eq)
 
+newParse :: String -> [Instruction]
+newParse input = let ("", instructios) = parseBlock input [] in instructios
+
 parse :: String -> [Instruction]
 parse [] = []
 parse (x:xs)
@@ -65,6 +68,18 @@ newParseInnerLoop x = let (part, rest) = inner 0 x in (parse part, rest)
             |           x == '[' = let (x', xs') = inner (n+1) xs in (x:x', xs')
             |          otherwise = let (x', xs') = inner n     xs in (x:x', xs')
 
+parseBlock :: String -> [Instruction] -> (String, [Instruction])
+parseBlock []                      opTail = ([], opTail)
+parseBlock ('[':charsAfterOpening) opTail = (charTail, knot)
+    where
+        (charsAfterClosing, loopBody) = parseBlock charsAfterOpening knot
+        (charTail, restOps)           = parseBlock charsAfterClosing opTail
+        knot                          = (Loop loopBody):restOps
+parseBlock (']':charsAfterClosing) opTail = (charsAfterClosing, opTail)
+parseBlock (x:xs) opTail
+    | x `elem` "+-<>.," = let (a, b) = parseBlock xs opTail in (a, parseSingle x:b)
+    | otherwise         =                 parseBlock xs opTail
+
 parseSingle :: Char -> Instruction
 parseSingle '+' = Inc
 parseSingle '-' = Dec
@@ -87,7 +102,7 @@ run ((Loop xs):next) input  dat = if dataGet dat == 0
                                     else run xs input dat
 
 execute :: String -> IO ()
-execute program = interact (\input -> run (parse program) input emptyData)
+execute program = interact (\input -> run (newParse program) input emptyData)
 
 -- $ ./dist/Main test_programs/echo_until_q.bf
 -- abcd
