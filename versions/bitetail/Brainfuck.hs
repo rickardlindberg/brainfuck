@@ -1,19 +1,8 @@
 module Brainfuck where
 
-import Prelude hiding (Left, Right)
 import Data.Char (chr, ord)
+import Prelude hiding (Left, Right)
 import qualified Data.Map as M
-
-data DataMap = DataMap
-    { currentPos :: Int
-    , values     :: M.Map Int Int
-    }
-
-dataMoveRight :: Data d => d -> d
-dataMoveRight = dataModifyPos (+1)
-
-dataMoveLeft :: Data d => d -> d
-dataMoveLeft = dataModifyPos (\x -> x - 1)
 
 class Data d where
     emptyData       :: d
@@ -21,20 +10,30 @@ class Data d where
     dataModifyValue :: d -> (Int -> Int) -> d
     dataModifyPos   :: (Int -> Int) -> d -> d
 
-instance Data DataMap where
---    emptyData :: DataMap
-    emptyData = DataMap 0 M.empty
+dataMoveRight :: Data d => d -> d
+dataMoveRight = dataModifyPos (+1)
 
---    dataGet :: DataMap -> Int
+dataMoveLeft :: Data d => d -> d
+dataMoveLeft = dataModifyPos (\x -> x - 1)
+
+data DataMap = DataMap
+    { currentPos :: Int
+    , values     :: M.Map Int Int
+    }
+
+emptyDataMap :: DataMap
+emptyDataMap = DataMap 0 M.empty
+
+instance Data DataMap where
+    emptyData = emptyDataMap
+
     dataGet dat = M.findWithDefault 0 (currentPos dat) (values dat)
 
---    dataModifyValue :: DataMap -> (Int -> Int) -> DataMap
     dataModifyValue dat fn = dat { values = newValues }
         where
             value     = M.findWithDefault 0 (currentPos dat) (values dat)
             newValues = M.insert (currentPos dat) (fn value) (values dat)
 
---    dataModifyPos :: (Int -> Int) -> DataMap -> DataMap
     dataModifyPos fn dat = dat { currentPos = fn (currentPos dat) }
 
 data CachingData = CachingData
@@ -42,12 +41,14 @@ data CachingData = CachingData
     , dataMap      :: DataMap
     }
 
+emptyCachingDataMap :: CachingData
+emptyCachingDataMap = CachingData (Just 0) emptyDataMap
+
 instance Data CachingData where
-    emptyData = CachingData (Just 0) emptyDataMap
+    emptyData = emptyCachingDataMap
 
     dataGet (CachingData Nothing dataMap) = dataGet dataMap
     dataGet (CachingData (Just x) _)      = x
-
 
     dataModifyValue (CachingData Nothing  dataMap) fn = CachingData (Just $ fn $ dataGet dataMap) dataMap
     dataModifyValue (CachingData (Just x) dataMap) fn = CachingData (Just $ fn x)                 dataMap
@@ -102,7 +103,4 @@ run ((Loop xs):next) input  dat = if dataGet dat == 0
                                       else run xs input dat
 
 execute :: String -> IO ()
-execute program = interact (\input -> run (parse program) input (emptyData :: CachingData))
-
-emptyDataMap :: DataMap
-emptyDataMap = emptyData
+execute program = interact (\input -> run (parse program) input emptyCachingDataMap)
