@@ -37,6 +37,23 @@ instance Data DataMap where
 --    dataModifyPos :: (Int -> Int) -> DataMap -> DataMap
     dataModifyPos fn dat = dat { currentPos = fn (currentPos dat) }
 
+data CachingData = CachingData
+    { currentValue :: Maybe Int
+    , dataMap      :: DataMap
+    }
+
+instance Data CachingData where
+    emptyData = CachingData (Just 0) emptyDataMap
+
+    dataGet (CachingData Nothing dataMap) = dataGet dataMap
+    dataGet (CachingData (Just x) _)      = x
+
+
+    dataModifyValue (CachingData Nothing  dataMap) fn = CachingData (Just $ fn $ dataGet dataMap) dataMap
+    dataModifyValue (CachingData (Just x) dataMap) fn = CachingData (Just $ fn x)                 dataMap
+
+    dataModifyPos fn (CachingData Nothing  dataMap) = CachingData Nothing $ dataModifyPos fn dataMap
+    dataModifyPos fn (CachingData (Just x) dataMap) = CachingData Nothing $ dataModifyPos fn $ dataModifyValue dataMap $ const x
 
 data Instruction
     = Inc
@@ -85,7 +102,7 @@ run ((Loop xs):next) input  dat = if dataGet dat == 0
                                       else run xs input dat
 
 execute :: String -> IO ()
-execute program = interact (\input -> run (parse program) input emptyDataMap)
+execute program = interact (\input -> run (parse program) input (emptyData :: CachingData))
 
 emptyDataMap :: DataMap
 emptyDataMap = emptyData
