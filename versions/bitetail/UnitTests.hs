@@ -17,8 +17,8 @@ main = hspecX $ do
             parse "." @?= [Print]
 
         it "loops" $ do
-            let [Inc, loop] = parse "+[->+<]."
-            let (Loop loopList [Print]) = loop
+            let [Inc, loop, Print] = parse "+[->+<]."
+            let (Loop loopList) = loop
 
             loopList !! 0 @?= Dec
             loopList !! 1 @?= Right
@@ -35,5 +35,6 @@ main = hspecX $ do
             run [Print] "" dataWithHInFirst @?= "Hdone!\n"
 
         it "simple loop" $ do
-            let loop = Loop [Dec, Right, Inc, Left, loop] [Right, Print]
-            run [Print, loop] "" dataWithHInFirst @?= "HHdone!\n"
+            let tail = [loop, Right, Print]
+                loop = Loop $ Dec : Right : Inc : Left : tail
+            run (Print : tail) "" dataWithHInFirst @?= "HHdone!\n"
