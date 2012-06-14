@@ -29,7 +29,7 @@ main = hspecX $ do
 
     describe "running" $ do
 
-        let dataWithHInFirst = dataModifyValue emptyData (const 72)
+        let dataWithHInFirst = dataModifyValue emptyDataMap (const 72)
 
         it "simple programs" $ do
             run [Print] "" dataWithHInFirst @?= "Hdone!\n"

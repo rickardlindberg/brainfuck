@@ -4,32 +4,38 @@ import Prelude hiding (Left, Right)
 import Data.Char (chr, ord)
 import qualified Data.Map as M
 
-data Data = Data
+data DataMap = DataMap
     { currentPos :: Int
     , values     :: M.Map Int Int
     }
 
-emptyData :: Data
-emptyData = Data 0 M.empty
-
-dataGet :: Data -> Int
-dataGet dat = M.findWithDefault 0 (currentPos dat) (values dat)
-
-dataModifyValue :: Data -> (Int -> Int) -> Data
-dataModifyValue dat fn = dat { values = newValues }
-    where
-        value     = M.findWithDefault 0 (currentPos dat) (values dat)
-        newValues = M.insert (currentPos dat) (fn value) (values dat)
-
-dataMoveRight :: Data -> Data
+dataMoveRight :: Data d => d -> d
 dataMoveRight = dataModifyPos (+1)
 
-dataMoveLeft :: Data -> Data
+dataMoveLeft :: Data d => d -> d
 dataMoveLeft = dataModifyPos (\x -> x - 1)
 
-dataModifyPos :: (Int -> Int) -> Data -> Data
-dataModifyPos fn dat = dat { currentPos = fn (currentPos dat) }
+class Data d where
+    emptyData       :: d
+    dataGet         :: d -> Int
+    dataModifyValue :: d -> (Int -> Int) -> d
+    dataModifyPos   :: (Int -> Int) -> d -> d
 
+instance Data DataMap where
+--    emptyData :: DataMap
+    emptyData = DataMap 0 M.empty
+
+--    dataGet :: DataMap -> Int
+    dataGet dat = M.findWithDefault 0 (currentPos dat) (values dat)
+
+--    dataModifyValue :: DataMap -> (Int -> Int) -> DataMap
+    dataModifyValue dat fn = dat { values = newValues }
+        where
+            value     = M.findWithDefault 0 (currentPos dat) (values dat)
+            newValues = M.insert (currentPos dat) (fn value) (values dat)
+
+--    dataModifyPos :: (Int -> Int) -> DataMap -> DataMap
+    dataModifyPos fn dat = dat { currentPos = fn (currentPos dat) }
 
 
 data Instruction
@@ -65,7 +71,7 @@ parseSingle '>' = Right
 parseSingle '.' = Print
 parseSingle ',' = Read
 
-run :: [Instruction] -> String -> Data -> String
+run :: Data d => [Instruction] -> String -> d -> String
 run []               input  dat = "done!\n"
 run (Inc:next)       input  dat = run next input (dataModifyValue dat (+1))
 run (Dec:next)       input  dat = run next input (dataModifyValue dat (\x -> x - 1))
@@ -79,4 +85,7 @@ run ((Loop xs):next) input  dat = if dataGet dat == 0
                                       else run xs input dat
 
 execute :: String -> IO ()
-execute program = interact (\input -> run (parse program) input emptyData)
+execute program = interact (\input -> run (parse program) input emptyDataMap)
+
+emptyDataMap :: DataMap
+emptyDataMap = emptyData
