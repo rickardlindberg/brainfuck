@@ -1,22 +1,42 @@
 module Brainfuck where
 
-import Data.Char (chr, ord)
+import qualified Data.Char as C
 import qualified Data.Map as M
 import Text.ParserCombinators.Parsec
 
----
+-- Data typeclass
 
 class Data d where
     emptyData       :: d
     dataGet         :: d -> Int
-    dataModifyValue :: d -> (Int -> Int) -> d
+    dataModifyValue :: (Int -> Int) -> d -> d
     dataModifyPos   :: (Int -> Int) -> d -> d
 
 dataMoveRight :: Data d => d -> d
-dataMoveRight = dataModifyPos (+1)
+dataMoveRight = dataModifyPos inc
 
 dataMoveLeft :: Data d => d -> d
-dataMoveLeft = dataModifyPos (\x -> x - 1)
+dataMoveLeft = dataModifyPos dec
+
+dataGetAscii :: Data d => d -> Char
+dataGetAscii dat = C.chr $ dataGet dat
+
+dataWriteAscii :: Data d => Char -> d -> d
+dataWriteAscii i = dataModifyValue (const $ C.ord i)
+
+dataIncValue :: Data d => d -> d
+dataIncValue = dataModifyValue inc
+
+dataDecValue :: Data d => d -> d
+dataDecValue = dataModifyValue dec
+
+inc :: Int -> Int
+inc = (+1)
+
+dec :: Int -> Int
+dec x = x - 1
+
+-- Different instances of the data typeclass
 
 data DataMap = DataMap
     { currentPos :: Int
@@ -31,7 +51,7 @@ instance Data DataMap where
 
     dataGet dat = M.findWithDefault 0 (currentPos dat) (values dat)
 
-    dataModifyValue dat fn = dat { values = newValues }
+    dataModifyValue fn dat = dat { values = newValues }
         where
             value     = M.findWithDefault 0 (currentPos dat) (values dat)
             newValues = M.insert (currentPos dat) (fn value) (values dat)
@@ -52,24 +72,13 @@ instance Data CachingData where
     dataGet (CachingData Nothing dataMap) = dataGet dataMap
     dataGet (CachingData (Just x) _)      = x
 
-    dataModifyValue (CachingData Nothing  dataMap) fn = CachingData (Just $ fn $ dataGet dataMap) dataMap
-    dataModifyValue (CachingData (Just x) dataMap) fn = CachingData (Just $ fn x)                 dataMap
+    dataModifyValue fn (CachingData Nothing  dataMap) = CachingData (Just $ fn $ dataGet dataMap) dataMap
+    dataModifyValue fn (CachingData (Just x) dataMap) = CachingData (Just $ fn x)                 dataMap
 
     dataModifyPos fn (CachingData Nothing  dataMap) = CachingData Nothing $ dataModifyPos fn dataMap
-    dataModifyPos fn (CachingData (Just x) dataMap) = CachingData Nothing $ dataModifyPos fn $ dataModifyValue dataMap $ const x
+    dataModifyPos fn (CachingData (Just x) dataMap) = CachingData Nothing $ dataModifyPos fn $ dataModifyValue (const x) dataMap
 
----
-
-data ByteCode
-    = BInc   ByteCode
-    | BDec   ByteCode
-    | BLeft  ByteCode
-    | BRight ByteCode
-    | BPrint ByteCode
-    | BRead  ByteCode
-    | BLoop  ByteCode ByteCode
-    | BEND
-    deriving (Show, Eq)
+-- The brainfuck code
 
 data Token
     = TInc
@@ -81,21 +90,16 @@ data Token
     | TLoop [Token]
     deriving (Show, Eq)
 
-parseTokens :: String -> [Token]
-parseTokens input =
-    case parse bfTokens "" (filter (`elem` "+-<>,.[]") input) of
-        Left  err -> error (show err)
-        Right x   -> x
-    where
-        bfTokens :: Parser [Token]
-        bfTokens =  many bfToken
-        bfToken  =  fmap (const TInc)   (char '+')
-                <|> fmap (const TDec)   (char '-')
-                <|> fmap (const TLeft)  (char '<')
-                <|> fmap (const TRight) (char '>')
-                <|> fmap (const TPrint) (char '.')
-                <|> fmap (const TRead)  (char ',')
-                <|> fmap TLoop          (between (char '[') (char ']') bfTokens)
+data ByteCode
+    = BInc   ByteCode
+    | BDec   ByteCode
+    | BLeft  ByteCode
+    | BRight ByteCode
+    | BPrint ByteCode
+    | BRead  ByteCode
+    | BLoop  ByteCode ByteCode
+    | BEND
+    deriving (Show, Eq)
 
 toByteCode :: [Token] -> ByteCode
 toByteCode tokens = toByteCode' tokens BEND
@@ -113,17 +117,42 @@ toByteCode tokens = toByteCode' tokens BEND
                                             loop  = BLoop inner rest
                                         in  loop
 
-run :: Data d => ByteCode -> String -> d -> String
-run BEND               input  dat = "done!\n"
-run (BInc   next)      input  dat = run next input (dataModifyValue dat (+1))
-run (BDec   next)      input  dat = run next input (dataModifyValue dat (\x -> x - 1))
-run (BLeft  next)      input  dat = run next input (dataMoveLeft dat)
-run (BRight next)      input  dat = run next input (dataMoveRight dat)
-run (BPrint next)      input  dat = chr (dataGet dat) : run next input dat
-run (BRead  next)      (i:is) dat = run next is (dataModifyValue dat (const (ord i)))
-run (BLoop  loop next) input  dat = if dataGet dat == 0
-                                        then run next input dat
-                                        else run loop input dat
+parseTokens :: String -> [Token]
+parseTokens input =
+    case parse bfTokens fileName (removeComments input) of
+        Left  err -> error (show err)
+        Right x   -> x
+    where
+        fileName :: String
+        fileName = ""
+        removeComments :: String -> String
+        removeComments = filter (`elem` "+-<>.,[]")
+        bfTokens :: Parser [Token]
+        bfTokens = many bfToken
+        bfToken :: Parser Token
+        bfToken  =  fmap (const TInc)   (char '+')
+                <|> fmap (const TDec)   (char '-')
+                <|> fmap (const TLeft)  (char '<')
+                <|> fmap (const TRight) (char '>')
+                <|> fmap (const TPrint) (char '.')
+                <|> fmap (const TRead)  (char ',')
+                <|> fmap TLoop          (between (char '[') (char ']')
+                                                 bfTokens)
+
+compile :: String -> ByteCode
+compile = toByteCode . parseTokens
+
+run :: Data d => ByteCode -> d -> String -> String
+run BEND               dat input  = "done!\n"
+run (BInc   next)      dat input  =                      run next (dataIncValue dat)     input
+run (BDec   next)      dat input  =                      run next (dataDecValue dat)     input
+run (BLeft  next)      dat input  =                      run next (dataMoveLeft dat)     input
+run (BRight next)      dat input  =                      run next (dataMoveRight dat)    input
+run (BPrint next)      dat input  = (dataGetAscii dat) : run next dat                    input
+run (BRead  next)      dat (i:is) =                      run next (dataWriteAscii i dat) is
+run (BLoop  loop next) dat input
+    | dataGet dat == 0            =                      run next dat                    input
+    | otherwise                   =                      run loop dat                    input
 
 execute :: String -> IO ()
-execute program = interact (\input -> run (toByteCode (parseTokens program)) input emptyCachingDataMap)
+execute program = interact (run (compile program) emptyCachingDataMap)
