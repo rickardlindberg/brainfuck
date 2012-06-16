@@ -39,7 +39,7 @@ log "running performace test" &&
 time echo "abcdefghijklmnopq" | ./dist/Main test_programs/echo_until_q.bf &&
 
 log "comparing to c version" &&
-gcc versions/c/BFI.c -o dist/BFI &&
+gcc -O1 versions/c/BFI.c -o dist/BFI &&
 time echo "abcdefghijklmnopq" | ./dist/BFI test_programs/echo_until_q.bf &&
 
 log "running profiling test" &&
