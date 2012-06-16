@@ -53,8 +53,8 @@ instance Data DataMap where
 
     dataModifyValue fn dat = dat { values = newValues }
         where
-            value     = M.findWithDefault 0 (currentPos dat) (values dat)
-            newValues = M.insert (currentPos dat) (fn value) (values dat)
+            oldValue  = dataGet dat
+            newValues = M.insert (currentPos dat) (fn oldValue) (values dat)
 
     dataModifyPos fn dat = dat { currentPos = fn (currentPos dat) }
 
@@ -155,4 +155,4 @@ run (BLoop  loop next) dat input
     | otherwise                   =                      run loop dat                    input
 
 execute :: String -> IO ()
-execute program = interact (run (compile program) emptyCachingDataMap)
+execute program = interact (run (compile program) emptyDataMap)
